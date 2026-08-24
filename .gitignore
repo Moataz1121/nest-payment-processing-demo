@@ -27,6 +27,10 @@ lerna-debug.log*
 *.launch
 .settings/
 *.sublime-workspace
+.agents
+.claude
+.windsurf
+
 
 # IDE - VSCode
 .vscode/*
@@ -54,3 +58,5 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+/generated/prisma
