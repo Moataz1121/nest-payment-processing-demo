@@ -18,6 +18,32 @@ enum OrderStatus {
   COMPLETED
 }
 
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  EXPIRED
+  DISPUTED
+}
+
+enum PaymentMethod {
+  CARD
+  WALLET
+  BANK_TRANSFER
+  CASH_ON_DELIVERY
+}
+
+enum PaymentAttemptStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
 model User {
   id            Int            @id @default(autoincrement())
   name          String
@@ -27,6 +53,7 @@ model User {
   updatedAt     DateTime       @updatedAt
   refreshTokens RefreshToken[]
   orders        Order[]
+  payments      Payment[]
 }
 
 model RefreshToken {
@@ -65,6 +92,7 @@ model Order {
 
   user       User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
+  payments   Payment[]
 
   @@index([user_id])
 }
@@ -84,4 +112,98 @@ model OrderItem {
 
   @@index([order_id])
   @@index([product_id])
+}
+
+model PaymentGateway {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  provider    String
+  is_enabled  Boolean   @default(true)
+  creds       Json
+  settings    Json?
+  description String?
+  sort_order  Int       @default(0)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  payments    Payment[]
+}
+
+model Payment {
+  id                   String         @id @default(uuid())
+  payment_gateway_id   String
+  order_id             Int
+  user_id              Int
+  payment_reference    String         @unique
+  idempotency_key      String
+  transaction_id       String?
+  amount               Float
+  currency             String         @default("USD")
+  status               PaymentStatus  @default(PENDING)
+  payment_method       PaymentMethod?
+  payment_initiated_at DateTime?
+  payment_completed_at DateTime?
+  payment_failed_at    DateTime?
+  expires_at           DateTime?
+  payment_url          String?
+  success_url          String?
+  failure_url          String?
+  cancel_url           String?
+  failure_reason       String?
+  failure_message      String?
+  gateway_error_code   String?
+  refunded_amount      Float          @default(0.0)
+  refund_attempts      Int            @default(0)
+  ip_address           String?
+  user_agent           String?
+  created_at           DateTime       @default(now())
+  updated_at           DateTime       @updatedAt
+
+  gateway       PaymentGateway        @relation(fields: [payment_gateway_id], references: [id], onDelete: Cascade)
+  order         Order                 @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  user          User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  attempts      PaymentAttempt[]      @relation("PaymentAttempts")
+  activeAttempt PaymentAttempt?       @relation("ActivePayment")
+  notifications PaymentNotification[]
+
+  @@unique([user_id, idempotency_key])
+  @@index([payment_gateway_id])
+  @@index([order_id])
+  @@index([user_id])
+}
+
+model PaymentAttempt {
+  id                Int                  @id @default(autoincrement())
+  payment_id        String
+  attempt_number    Int
+  status            PaymentAttemptStatus @default(PENDING)
+  request_payload   Json?
+  response_payload  Json?
+  error_code        String?
+  error_message     String?
+  started_at        DateTime?
+  finished_at       DateTime?
+  active_payment_id String?              @unique
+  created_at        DateTime             @default(now())
+  updated_at        DateTime             @updatedAt
+
+  payment       Payment  @relation("PaymentAttempts", fields: [payment_id], references: [id], onDelete: Cascade)
+  activePayment Payment? @relation("ActivePayment", fields: [active_payment_id], references: [id])
+
+  @@unique([payment_id, attempt_number])
+  @@index([payment_id])
+}
+
+model PaymentNotification {
+  id                Int      @id @default(autoincrement())
+  payment_id        String
+  notification_type String
+  sent_at           DateTime
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  payment Payment @relation(fields: [payment_id], references: [id], onDelete: Cascade)
+
+  @@unique([payment_id, notification_type])
+  @@index([payment_id])
 }
