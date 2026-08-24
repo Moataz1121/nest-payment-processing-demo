@@ -35,4 +35,17 @@ model RefreshToken {
   @@index([userId])
 }
 
+model Product {
+  id                Int      @id @default(autoincrement())
+  name              String
+  currency          String   @default("USD")
+  is_active         Boolean  @default(true)
+  price             Float
+  quantity          Int      @default(0)
+  reserved_quantity Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+
 
